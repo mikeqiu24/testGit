@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2048网页小游戏</title>
+    <style>
+        .main{
+            width: 400px;
+            height: 400px;
+            display: flex;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            padding: 10px;
+            background:#bbada0;
+            border-radius: 6px;
+            position: absolute;
+            top: calc(50% - 200px);
+            left: calc(50% - 200px);
+        }
+        .main div{
+            width: 90px;
+            height: 90px;
+            border-radius: 6px;
+            background-color: #ccc0b3;
+            text-align: center;
+            line-height: 90px;
+        }
+        @media all and (max-device-width: 400px){
+            .main{
+                width: 340px;
+                height: 340px;
+                border-right: 1px solid #e0e0e0;
+                display: flex;
+                justify-content: space-between;
+                flex-wrap: wrap;
+                padding: 10px;
+                background:#bbada0;
+                border-radius: 6px;
+                position: absolute;
+                top: calc(50% - 170px);
+                left: calc(50% - 180px);
+            }
+
+            .main div{
+                width: 80px;
+                height: 80px;
+            }
+        }
+        .keymap{
+            margin: 0 auto;
+            width: 300px;
+            text-align: center;
+        }
+        .modal {
+            display: none; 
+            position: fixed; 
+            z-index: 1; 
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto; 
+            background-color: rgba(0,0,0,0.4); 
+        }
+
+        .modal-content {
+            background-color: #fefefe;
+            margin: 15% auto; /* 15% from the top and centered */
+            padding: 20px;
+            border: 1px solid #888;
+            width: 400px; /* Same as .main width */
+            height: 400px; /* Same as .main height */
+            border-radius: 6px;
+            position: relative;
+            text-align: center;
+        }
+
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+
+        .close:hover,
+        .close:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        .score{
+            height: 40px;
+            line-height: 40px;
+            font-size: 30px;
+            margin: 20px;
+        }
+        .btn-1,.btn-2,.btn-3,.btn-4{
+            display: flex;
+            flex-flow: row;
+            justify-content: center;
+            margin-top: 10px;
+        }
+        .btn-4{
+            margin-top: 40px;
+        }
+
+        button{
+            height: 50px;
+            width: 80px;
+            margin: 0 10px;
+            cursor: pointer;
+            border-width: 0;
+            outline: none;
+            background-color: #f59563;
+            font-family: KaiTi;
+            border-radius: 3px;
+            font-size: 20px;
+        }
+        button:hover{/*鼠标移动时的颜色变化*/
+            background-color: antiquewhite;
+        }
+
+        .n2{background-color:#eee3da !important}
+        .n4{background-color:#ede0c8 !important}
+        .n8{background-color:#f2b179 !important}
+        .n16{background-color:#f59563 !important}
+        .n32{background-color:#f67c5f !important}
+        .n64{background-color:#f65e3b !important}
+        .n128{background-color:#edcf72 !important}
+        .n256{background-color:#edcc61 !important}
+        .n512{background-color:#9c0 !important}
+        .n1024{background-color:#33b5e5 !important}
+        .n2048{background-color:#09c !important}
+        .n4096{background-color:#a6c !important}
+        .n8192{background-color:#93c !important }
+        .n2,.n4{color:#776e65 !important}
+
+    </style>
+</head>
+
+<body style="overflow: hidden;">
+    <div class="main">
+        <div id="c00"></div>
+        <div id="c01"></div>
+        <div id="c02"></div>
+        <div id="c03"></div>
+
+        <div id="c10"></div>
+        <div id="c11"></div>
+        <div id="c12"></div>
+        <div id="c13"></div>
+
+        <div id="c20"></div>
+        <div id="c21"></div>
+        <div id="c22"> </div>
+        <div id="c23"></div>
+
+        <div id="c30"></div>
+        <div id="c31"></div>
+        <div id="c32"></div>
+        <div id="c33"></div>
+    </div>
+    <div class="keymap">
+        <div class="score">分数：<span id="score">0</span></div>
+        <p><button onclick="game.reset()">重新开始</button></p>
+    </div>
+    <!-- 在keymap元素后添加模态对话框 -->
+    <div id="myModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>游戏结束</h2>
+            <p>你的最终得分是：<span id="finalScore"></span></p>
+        </div>
+    </div>
+    <script>
+        //声明一个game对象
+        let game = {
+        score: 0,
+        status: 0,
+        data: [     //这里是一个二维数组，来存储数据
+            [],
+            [],
+            [],
+            []
+        ],
+        start: function(){              //开始函数
+            if(this.status == 1){       //如果状态为1就开始游戏
+                alert('游戏已开始');
+                return                  //这里返回？？？
+            }
+            this.status = 1;            //如果不等于1，就改变他的值
+            let data = localStorage.getItem('data');//获取本地存储的数据
+            if(data){       //如果本地存储有数据，就分割然后显示
+                let arr = data.split(',');      //用,分割
+                for(let i=0;i<arr.length;i++){
+                    if(i<4){
+                        this.data[0][i]=parseInt(arr[i]);
+                    }else if(i<8){
+                        this.data[1][i-4]=parseInt(arr[i]);
+                    }else if(i<12){
+                        this.data[2][i-8]=parseInt(arr[i]);
+                    }else{
+                        this.data[3][i-12]=parseInt(arr[i]);
+                    }
+                }
+            }else{      //没有数据就通过自定义的随机生成的数填充
+                this.data = [
+                    [0,0,0,0],
+                    [0,0,0,0],
+                    [0,0,0,0],
+                    [0,0,0,0]
+                ];
+                this.randomData();  //调用随机生成的数填充
+            }
+            if(localStorage.getItem('score')){  //？？
+                this.score = parseInt(localStorage.getItem('score'))
+            }
+            this.renderView();      //调用自定义的更新视图
+        },
+        randomData: function(){         //定义了一个随机生成的的数
+            for(;;){
+                let a = Math.floor(Math.random()*4);
+                let b = Math.floor(Math.random()*4);
+                if(this.data[a][b] == 0){
+                    var num = Math.random()>0.3 ? 2:4;
+                    this.data[a][b]=num;
+                    break;
+                }
+            }
+        },
+        //更新视图
+        renderView: function(){
+            for(let i = 0; i < this.data.length; i++){
+                let row = this.data[i];         //行
+                for(let j = 0; j<row.length; j++){
+                    let cell = row[j];          //列
+                    let dom = document.getElementById('c'+i+j);
+                    if(cell != 0){
+                        dom.innerText=cell;
+                        dom.className='n'+cell;
+                    }else{
+                        dom.innerText='';
+                        dom.className='';
+                    }
+                }
+            }
+            localStorage.setItem('score',this.score);
+            document.getElementById('score').innerText=this.score;
+        },
+        reset(){        //重置，清楚本地存储数据
+            localStorage.clear();
+            this.data = [
+                [0,0,0,0],
+                [0,0,0,0],
+                [0,0,0,0],
+                [0,0,0,0]
+            ]
+            this.score = 0;
+            this.randomData();
+            this.renderView();
+        },
+        checkGameOver: function(){      //检查游戏是否结束
+            for(let i = 0; i < this.data.length; i++){
+                let row = this.data[i];
+                for(let j = 0; j<row.length; j++){
+                    let cell = row[j];
+                    if(cell == 0){
+                        return false;
+                    }
+                    if(i < this.data.length-1 && this.data[i][j]== this.data[i+1][j]){
+                        return false;
+                    }
+                    if(j < this.data.length-1 && this.data[i][j]== this.data[i][j+1]){
+                        return false;
+                    }
+                }
+            }
+            return true;
+        },
+        moveLeft: function(){           //向左移动
+            let before = String(this.data);
+            //遍历行
+            for(let a = 0; a < this.data.length; a++){
+                this.moveLeftInRow(a);
+            }
+            let after = String(this.data);
+            if(before != after){
+                this.randomData();
+                this.renderView();
+                if(this.checkGameOver()){
+                    alert('游戏结束')//这里改成显示分数
+                }
+            }
+            localStorage.setItem('data',this.data.join(','))
+        },
+        moveLeftInRow: function(a){
+            for(let b = 0; b < this.data.length - 1; b++){
+                let nextb = this.getNextInRow(a,b);
+                if(nextb != -1){
+                    if(this.data[a][b] == 0){
+                        this.data[a][b] = this.data[a][nextb];
+                        this.data[a][nextb] = 0;
+                        b--;   
+                    }else if(this.data[a][b] == this.data[a][nextb]){
+                        this.data[a][b] *= 2;
+                        this.score += this.data[a][b]
+                        this.data[a][nextb] = 0
+                    }
+                }else{
+                    break;
+                }
+            }
+        },
+        getNextInRow: function(a,b){
+            for(let i = b+1; i<this.data.length; i++){
+                if(this.data[a][i] != 0){
+                    return i;
+                }
+            }
+            return -1;
+        },
+        moveRight: function(){
+            let before = String(this.data);
+            for(let a = 0; a < this.data.length; a++){
+                this.moveRightInRow(a);
+            }
+            let after = String(this.data);
+            if(before != after){
+                this.randomData();
+                this.renderView();
+                if(this.checkGameOver()){
+                    let finalScore = document.getElementById('finalScore');
+                    finalScore.innerText = this.score;
+                    document.getElementById('myModal').style.display = "block";
+                }
+            }
+            localStorage.setItem('data',this.data.join(','))
+        },
+        moveRightInRow: function(a){
+            for(let b=this.data.length-1; b > 0; b--){
+                let nextb = this.moveNextRight(a,b);
+                if(nextb != -1){
+                    if(this.data[a][b] == 0){
+                        this.data[a][b] = this.data[a][nextb];
+                        this.data[a][nextb] = 0;
+                        b++;    
+                    }else if(this.data[a][b] == this.data[a][nextb]){
+                        this.data[a][b] *= 2;
+                        this.score += this.data[a][b]
+                        this.data[a][nextb] = 0
+                    }
+                }else{
+                    break;
+                }
+            }
+        },
+        moveNextRight(a,b){
+            for(var i = b-1; i >= 0; i--){
+                if(this.data[a][i] != 0){
+                    return i;
+                }
+            }
+            return -1;
+        },
+        moveUp: function(){
+            let before = String(this.data);
+            for(let b=0; b < this.data.length; b++){
+                this.moveUpInRow(b);
+            }
+            let after = String(this.data);
+            if(before != after){
+                this.randomData();
+                this.renderView();
+                if(this.checkGameOver()){
+                    let finalScore = document.getElementById('finalScore');
+                    finalScore.innerText = this.score;
+                    document.getElementById('myModal').style.display = "block";
+                }
+            }
+            localStorage.setItem('data',this.data.join(','))
+        },
+        moveUpInRow(b){
+            for(var a = 0; a < 3; a++){
+                let nexta = this.moveNextUp(a,b);
+                if(nexta != -1){
+                    if(this.data[a][b] == 0){
+                        this.data[a][b] = this.data[nexta][b];
+                        this.data[nexta][b] = 0;
+                        a--;    
+                    }else if(this.data[a][b] == this.data[nexta][b]){
+                        this.data[a][b] *= 2;
+                        this.score += this.data[a][b]
+                        this.data[nexta][b] = 0
+                    }
+                }else{
+                    break;
+                }
+            }
+        },
+        moveNextUp(a,b){
+            for(var i = a+1; i<4; i++){
+                if(this.data[i][b] != 0){
+                    return i;
+                }
+            }
+            return -1;
+        },
+        moveDown: function(){
+            let before = String(this.data);
+            for(let b=0; b< this.data.length; b++){
+                this.moveDownInRow(b);
+            }
+            let after = String(this.data);
+            if(before != after){
+                this.randomData();
+                this.renderView();
+                if(this.checkGameOver()){
+                    let finalScore = document.getElementById('finalScore');
+                    finalScore.innerText = this.score;
+                    document.getElementById('myModal').style.display = "block";
+                }
+            }
+            localStorage.setItem('data',this.data.join(','))
+        },
+        moveDownInRow: function(b){
+            for(var a=3; a>0; a--){
+                var nexta = this.moveNextDown(a,b)
+                if(nexta != -1){
+                    if(this.data[a][b]==0){
+                        this.data[a][b] = this.data[nexta][b];
+                        this.data[nexta][b] = 0;
+                        a++;  
+                    }else if(this.data[a][b] == this.data[nexta][b]){
+                        this.data[a][b] *= 2;
+                        this.score += this.data[a][b]
+                        this.data[nexta][b] = 0;
+                    }
+                }else{
+                    break;
+                }
+            }
+        },
+        moveNextDown(a,b){
+            for(var i = a-1;i >= 0;i--){
+                if(this.data[i][b] != 0){
+                    return i;
+                }
+            }
+            return -1;
+        }
+    }
+    //监听键盘上下左右按键
+    document.addEventListener('keyup',function(e){
+        if(event.keyCode==37)	//左
+            game.moveLeft();
+        if(event.keyCode==39)	//右
+            game.moveRight();
+        if(event.keyCode==38)	//上
+            game.moveUp();
+        if(event.keyCode==40)	//下
+            game.moveDown();
+    })
+    //封装移动滑动事件
+    let eventUtil = {
+        addHandler: function (element, type, handler) {
+            if (element.addEventListener)
+                element.addEventListener(type, handler, false);
+            else if (element.attachEvent)
+                element.attachEvent("on" + type, handler);
+            else
+                element["on" + type] = handler;
+        },
+        removeHandler: function (element, type, handler) {
+            if(element.removeEventListener)
+                element.removeEventListener(type, handler, false);
+            else if(element.detachEvent)
+                element.detachEvent("on" + type, handler);
+            else
+                element["on" + type] = handler;
+        },
+        /**
+        * 监听触摸的方向
+        * @param target            要绑定监听的目标元素
+        * @param isPreventDefault  是否屏蔽掉触摸滑动的默认行为（例如页面的上下滚动，缩放等）
+        * @param upCallback        向上滑动的监听回调（若不关心，可以不传，或传false）
+        * @param rightCallback     向右滑动的监听回调（若不关心，可以不传，或传false）
+        * @param downCallback      向下滑动的监听回调（若不关心，可以不传，或传false）
+        * @param leftCallback      向左滑动的监听回调（若不关心，可以不传，或传false）
+        */
+        listenTouchDirection: function (target, isPreventDefault, upCallback, rightCallback, downCallback, leftCallback) {
+            this.addHandler(target, "touchstart", handleTouchEvent);
+            this.addHandler(target, "touchend", handleTouchEvent);
+            this.addHandler(target, "touchmove", handleTouchEvent);
+            var startX;
+            var startY;
+            function handleTouchEvent(event) {
+                switch (event.type){
+                    case "touchstart":
+                        startX = event.touches[0].pageX;
+                        startY = event.touches[0].pageY;
+                        break;
+                    case "touchend":
+                        var spanX = event.changedTouches[0].pageX - startX;
+                        var spanY = event.changedTouches[0].pageY - startY;
+
+                        if(Math.abs(spanX) > Math.abs(spanY)){      //认定为水平方向滑动
+                            if(spanX > 30){         //向右
+                                if(rightCallback)
+                                    rightCallback();
+                            } else if(spanX < -30){ //向左
+                                if(leftCallback)
+                                    leftCallback();
+                            }
+                        } else {                                    //认定为垂直方向滑动
+                            if(spanY > 30){         //向下
+                                if(downCallback)
+                                    downCallback();
+                            } else if (spanY < -30) {//向上
+                                if(upCallback)
+                                    upCallback();
+                            }
+                        }
+
+                        break;
+                    case "touchmove":
+                        //阻止默认行为
+                        if(isPreventDefault)
+                            event.preventDefault();
+                        break;
+                }
+            }
+        }
+    }
+    //监听滑动
+    eventUtil.listenTouchDirection(document.documentElement,true,
+    ()=>{game.moveUp()},
+    ()=>{game.moveRight()},
+    ()=> {game.moveDown()},
+    ()=>{game.moveLeft()})
+    //这里还要加一个游戏结束输出最后分数
+    document.getElementById("myModal").addEventListener("click", function(event) {
+    if (event.target === event.currentTarget) {
+        this.style.display = "none";
+        game.reset(); // 可选：点击关闭时重置游戏
+        }
+    });
+
+    document.getElementsByClassName("close")[0].addEventListener("click", function() {
+        document.getElementById("myModal").style.display = "none";
+        game.reset(); // 可选：点击×时重置游戏
+    });
+
+    </script>
+</body>
+
+</html>
